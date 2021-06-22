@@ -33,6 +33,8 @@ OPENSSL_KEY_FALLBACK(DH, pqg, p, q, g)
 #define DH_set_length(dh, len) ({ (dh)->length = len; 1; })
 #endif
 
+
+
 typedef struct private_openssl_diffie_hellman_t private_openssl_diffie_hellman_t;
 
 /**
@@ -168,7 +170,8 @@ static status_t set_modulus(private_openssl_diffie_hellman_t *this)
 	}
 	if (params->exp_len != params->prime.len)
 	{
-#ifdef OPENSSL_IS_BORINGSSL
+#if defined(OPENSSL_IS_BORINGSSL) && \
+	(!defined(OPENSSL_IS_BORINGSSL) || BORINGSSL_API_VERSION < 11)
 		this->dh->priv_length = params->exp_len * 8;
 #else
 		if (!DH_set_length(this->dh, params->exp_len * 8))

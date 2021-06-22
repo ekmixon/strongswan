@@ -153,7 +153,8 @@ time_t openssl_asn1_to_time(const ASN1_TIME *time);
 /**
  * Compatibility macros
  */
-#ifdef OPENSSL_IS_BORINGSSL
+#if defined(OPENSSL_IS_BORINGSSL) && \
+	(!defined(OPENSSL_IS_BORINGSSL) || BORINGSSL_API_VERSION < 10)
 #define EVP_PKEY_base_id(p) EVP_PKEY_type(p->type)
 #endif
 
