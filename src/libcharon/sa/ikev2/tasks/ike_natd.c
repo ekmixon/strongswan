@@ -140,7 +140,7 @@ static notify_payload_t *build_natd_payload(private_ike_natd_t *this,
 
 	ike_sa_id = this->ike_sa->get_id(this->ike_sa);
 	config = this->ike_sa->get_ike_cfg(this->ike_sa);
-	if (force_encap(config) && type == NAT_DETECTION_SOURCE_IP)
+	if (type == NAT_DETECTION_SOURCE_IP && (force_encap(config) || host->is_anyaddr(host)))
 	{
 		uint32_t addr;
 
@@ -302,14 +302,6 @@ METHOD(task_t, build_i, status_t,
 
 	ike_cfg = this->ike_sa->get_ike_cfg(this->ike_sa);
 
-	/* destination is always set */
-	host = message->get_destination(message);
-	notify = build_natd_payload(this, NAT_DETECTION_DESTINATION_IP, host);
-	if (notify)
-	{
-		message->add_payload(message, (payload_t*)notify);
-	}
-
 	/* source may be any, we have 3 possibilities to get our source address:
 	 * 1. It is defined in the config => use the one of the IKE_SA
 	 * 2. We do a routing lookup in the kernel interface
@@ -355,6 +347,38 @@ METHOD(task_t, build_i, status_t,
 				}
 			}
 			enumerator->destroy(enumerator);
+		}
+	}
+
+	/* if we were not able to find a source address (e.g. because DHCP is not
+	 * done yet), we default to forcing encap for IPv4 and disabling NAT-D for
+	 * IPv6 by not sending any notifies */
+	if (!message->get_notify(message, NAT_DETECTION_SOURCE_IP))
+	{
+		host = message->get_source(message);
+		if (host->get_family(host) == AF_INET)
+		{
+			DBG1(DBG_IKE, "unable to determine source address, faking NAT "
+				 "situation");
+			notify = build_natd_payload(this, NAT_DETECTION_SOURCE_IP, host);
+			if (notify)
+			{
+				message->add_payload(message, (payload_t*)notify);
+			}
+		}
+		else
+		{
+			DBG1(DBG_IKE, "unable to determine source address, disabling NAT-D");
+		}
+	}
+
+	if (message->get_notify(message, NAT_DETECTION_SOURCE_IP))
+	{
+		host = message->get_destination(message);
+		notify = build_natd_payload(this, NAT_DETECTION_DESTINATION_IP, host);
+		if (notify)
+		{
+			message->add_payload(message, (payload_t*)notify);
 		}
 	}
 	return NEED_MORE;
