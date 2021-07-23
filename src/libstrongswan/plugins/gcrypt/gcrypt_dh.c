@@ -102,22 +102,16 @@ METHOD(key_exchange_t, set_public_key, bool,
 	/* check public value:
 	 * 1. 0 or 1 is invalid as 0^a = 0 and 1^a = 1
 	 * 2. a public value larger or equal the modulus is invalid */
-	if (gcry_mpi_cmp_ui(this->yb, 1) > 0 &&
-		gcry_mpi_cmp(this->yb, p_min_1) < 0)
+	if (gcry_mpi_cmp_ui(this->yb, 1) <= 0 ||
+		gcry_mpi_cmp(this->yb, p_min_1) >= 0)
 	{
-		if (!this->zz)
-		{
-			this->zz = gcry_mpi_new(this->p_len * 8);
-		}
-		gcry_mpi_powm(this->zz, this->yb, this->xa, this->p);
-	}
-	else
-	{
-		DBG1(DBG_LIB, "public DH value verification failed:"
-			 " y < 2 || y > p - 1 ");
+		DBG1(DBG_LIB, "public DH value verification failed: "
+			 "y < 2 || y > p - 1 ");
+		gcry_mpi_release(p_min_1);
+		return FALSE;
 	}
 	gcry_mpi_release(p_min_1);
-	return this->zz != NULL;
+	return TRUE;
 }
 
 /**
@@ -168,7 +162,8 @@ METHOD(key_exchange_t, get_shared_secret, bool,
 {
 	if (!this->zz)
 	{
-		return FALSE;
+		this->zz = gcry_mpi_new(this->p_len * 8);
+		gcry_mpi_powm(this->zz, this->yb, this->xa, this->p);
 	}
 	*secret = export_mpi(this->zz, this->p_len);
 	return TRUE;
