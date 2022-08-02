@@ -102,7 +102,7 @@ class ConfigOption:
 		elif not len(self.desc[-1]):
 			self.desc[-1] = line
 		else:
-			self.desc[-1] += ' ' + line
+			self.desc[-1] += f' {line}'
 
 	def adopt(self, other):
 		"""Adopts settings from other, which should be more recently parsed"""
@@ -140,26 +140,24 @@ class Parser:
 		if m:
 			if self.__current:
 				self.__add_option(self.__current)
-			path = self.__split_name(m.group('name'))
-			self.__current = ConfigOption(path, m.group('default'),
-										  commented = not m.group('assign'))
+			path = self.__split_name(m['name'])
+			self.__current = ConfigOption(path, m['default'], commented=not m['assign'])
 			return
 		# section definition
 		m = re.match(r'^(?P<name>\S+)\s*\{\s*(?P<comment>#)?\s*\}\s*$', line)
 		if m:
 			if self.__current:
 				self.__add_option(self.__current)
-			path = self.__split_name(m.group('name'))
-			self.__current = ConfigOption(path, section = True,
-										  commented = m.group('comment'))
+			path = self.__split_name(m['name'])
+			self.__current = ConfigOption(path, section = True, commented=m['comment'])
 			return
 		# include definition
 		m = re.match(r'^(?P<name>\S+\.include|include)\s+(?P<pattern>\S+)\s*$', line)
 		if m:
 			if self.__current:
 				self.__add_option(self.__current)
-			path = self.__split_name(m.group('name'))
-			self.__current = ConfigOption(path, m.group('pattern'), include = True)
+			path = self.__split_name(m['name'])
+			self.__current = ConfigOption(path, m['pattern'], include = True)
 			return
 		# paragraph separator
 		m = re.match(r'^\s*$', line)
@@ -168,7 +166,7 @@ class Parser:
 		# description line
 		m = re.match(r'^\s+(?P<text>.+?)\s*$', line)
 		if m and self.__current:
-			self.__current.add(m.group('text'))
+			self.__current.add(m['text'])
 
 	def __split_name(self, name):
 		"""Split the given full name in a list of section/option names"""
@@ -180,9 +178,14 @@ class Parser:
 		parent = self.__get_option(option.path[:-1], True)
 		if not parent:
 			parent = self
-		found = next((x for x in parent.options if x.name == option.name
-										and x.section == option.section), None)
-		if found:
+		if found := next(
+			(
+				x
+				for x in parent.options
+				if x.name == option.name and x.section == option.section
+			),
+			None,
+		):
 			found.adopt(option)
 		else:
 			parent.options.append(option)
@@ -331,7 +334,7 @@ class ManFormatter:
 			print('.TP\n.B {0}\n.br'.format(option.fullname))
 		else:
 			print('.TP')
-			default = option.default if option.default else ''
+			default = option.default or ''
 			print('.BR {0} " [{1}]"'.format(option.fullname, default))
 		for para in option.desc if len(option.desc) < 2 else option.desc[1:]:
 			print(self.__groffize(self.__wrapper.fill(para)))
@@ -373,9 +376,8 @@ else:
 	parser.parse(sys.stdin)
 
 options = parser.options
-if (opts.root):
-	root = parser.get_option(opts.root)
-	if root:
+if opts.root:
+	if root := parser.get_option(opts.root):
 		options = root.options
 
 if opts.format == "conf":

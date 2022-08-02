@@ -19,8 +19,8 @@ logger.setLevel(logging.INFO)
 def handle_interfaces(ike_sa, up):
     if_id_in = int(ike_sa['if-id-in'], 16)
     if_id_out = int(ike_sa['if-id-out'], 16)
-    ifname_in = "xfrm-{}-in".format(if_id_in)
-    ifname_out = "xfrm-{}-out".format(if_id_out)
+    ifname_in = f"xfrm-{if_id_in}-in"
+    ifname_out = f"xfrm-{if_id_out}-out"
 
     if up:
         logger.info("add XFRM interfaces %s and %s", ifname_in, ifname_out)
@@ -47,7 +47,7 @@ def handle_interfaces(ike_sa, up):
 
 def install_routes(ike_sa):
     if_id_out = int(ike_sa['if-id-out'], 16)
-    ifname_out = "xfrm-{}-out".format(if_id_out)
+    ifname_out = f"xfrm-{if_id_out}-out"
     child_sa = next(ike_sa["child-sas"].itervalues())
 
     for ts in child_sa['remote-ts']:

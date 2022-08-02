@@ -74,13 +74,12 @@ class Session(CommandWrappers, object):
             )
 
         command_response = Message.deserialize(response.payload)
-        if "success" in command_response:
-            if command_response["success"] != b"yes":
-                raise CommandException(
-                    "Command failed: {errmsg}".format(
-                        errmsg=command_response["errmsg"].decode("UTF-8")
-                    )
+        if "success" in command_response and command_response["success"] != b"yes":
+            raise CommandException(
+                "Command failed: {errmsg}".format(
+                    errmsg=command_response["errmsg"].decode("UTF-8")
                 )
+            )
 
         return command_response
 
@@ -107,15 +106,14 @@ class Session(CommandWrappers, object):
             exited = False
             while True:
                 response = Packet.parse(self.transport.receive())
-                if response.response_type == Packet.EVENT:
-                    if not exited:
-                        try:
-                            yield Message.deserialize(response.payload)
-                        except GeneratorExit:
-                            exited = True
-                else:
+                if response.response_type != Packet.EVENT:
                     break
 
+                if not exited:
+                    try:
+                        yield Message.deserialize(response.payload)
+                    except GeneratorExit:
+                        exited = True
             if response.response_type == Packet.CMD_RESPONSE:
                 command_response = Message.deserialize(response.payload)
             else:
@@ -131,13 +129,12 @@ class Session(CommandWrappers, object):
             self._register_unregister(event_stream_type, False)
 
         # evaluate command result, if any
-        if "success" in command_response:
-            if command_response["success"] != b"yes":
-                raise CommandException(
-                    "Command failed: {errmsg}".format(
-                        errmsg=command_response["errmsg"].decode("UTF-8")
-                    )
+        if "success" in command_response and command_response["success"] != b"yes":
+            raise CommandException(
+                "Command failed: {errmsg}".format(
+                    errmsg=command_response["errmsg"].decode("UTF-8")
                 )
+            )
 
     def listen(self, event_types):
         """Register and listen for the given events.

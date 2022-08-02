@@ -22,8 +22,7 @@ class Transport(object):
     def receive(self):
         raw_length = self._recvall(self.HEADER_LENGTH)
         length, = struct.unpack("!I", raw_length)
-        payload = self._recvall(length)
-        return payload
+        return self._recvall(length)
 
     def close(self):
         self.socket.shutdown(socket.SHUT_RDWR)
@@ -33,10 +32,10 @@ class Transport(object):
         """Ensure to read count bytes from the socket"""
         data = b""
         while len(data) < count:
-            buf = self.socket.recv(count - len(data))
-            if not buf:
+            if buf := self.socket.recv(count - len(data)):
+                data += buf
+            else:
                 raise socket.error('Connection closed')
-            data += buf
         return data
 
 
@@ -64,10 +63,7 @@ class Packet(object):
     def _named_request(cls, request_type, request, message=None):
         request = request.encode("UTF-8")
         payload = struct.pack("!BB", request_type, len(request)) + request
-        if message is not None:
-            return payload + message
-        else:
-            return payload
+        return payload + message if message is not None else payload
 
     @classmethod
     def request(cls, command, message=None):
@@ -86,12 +82,11 @@ class Packet(object):
         stream = FiniteStream(packet)
         response_type, = struct.unpack("!B", stream.read(1))
 
-        if response_type == cls.EVENT:
-            length, = struct.unpack("!B", stream.read(1))
-            event_type = stream.read(length)
-            return cls.ParsedEventPacket(response_type, event_type, stream)
-        else:
+        if response_type != cls.EVENT:
             return cls.ParsedPacket(response_type, stream)
+        length, = struct.unpack("!B", stream.read(1))
+        event_type = stream.read(length)
+        return cls.ParsedEventPacket(response_type, event_type, stream)
 
 
 class Message(object):
@@ -177,7 +172,7 @@ class Message(object):
 
             elif element_type == cls.LIST_START:
                 list_name = decode_named_type(stream)
-                section[list_name] = [item for item in decode_list_item(stream)]
+                section[list_name] = list(decode_list_item(stream))
 
             elif element_type == cls.KEY_VALUE:
                 key = decode_named_type(stream)
